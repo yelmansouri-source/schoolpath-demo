@@ -4,7 +4,7 @@ import {
   Star, DollarSign, ShieldCheck, Bus, Clock, GraduationCap, Puzzle,
   CalendarDays, AlertCircle, Info, Sparkles, Building2, MapPin, Tag,
   HandCoins, FileText, Shield, Receipt, Users, Mail, Trophy, Eye,
-  Link2, GripVertical, ListChecks, ArrowUp, ArrowDown,
+  Link2, GripVertical, ListChecks, ArrowUp, ArrowDown, ClipboardList,
 } from "lucide-react";
 
 /* ───────── primitives ───────── */
@@ -72,6 +72,20 @@ const Toggle = ({ on, onChange, label }) => (
   </button>
 );
 
+const YesNo = ({ value, onChange }) => (
+  <div className="inline-flex bg-neutral-950 border border-neutral-800 rounded-lg p-0.5 gap-0.5">
+    {[["Yes", true], ["No", false]].map(([label, val]) => {
+      const active = value === val;
+      return (
+        <button key={label} onClick={() => onChange(val)}
+          className={`text-xs px-3.5 py-1.5 rounded-md transition-colors ${active ? (val ? "bg-neutral-100 text-neutral-900 font-medium" : "bg-neutral-700 text-white font-medium") : "text-neutral-400 hover:text-white"}`}>
+          {label}
+        </button>
+      );
+    })}
+  </div>
+);
+
 const Banner = ({ children, tone = "violet" }) => {
   const tones = { violet: "border-violet-700 bg-violet-950 text-violet-200", amber: "border-amber-700 bg-neutral-900 text-amber-300" };
   return <div className={`flex items-start gap-2 border rounded-lg px-3 py-2.5 text-xs ${tones[tone]}`}><Info size={13} className="mt-0.5 shrink-0" /> <div>{children}</div></div>;
@@ -99,6 +113,7 @@ const FEE_NAMES = ["Registration","Materials","Technology","Activity","Other"];
 const FEE_FREQ = ["One-time","Annual","Monthly"];
 const SERVED_GRADES = ["5th","6th"];
 const QUESTION_TYPES = ["Short text","Long text","Multiple choice","Yes / No"];
+const ADMISSION_REQS = ["Entrance exam / assessment","Kindergarten readiness screening","Student interview","Parent / family interview","Shadow day / visit","Teacher recommendation(s)","Transcripts / prior records","Student essay / writing sample","Pastor / faith reference","Immunization records"];
 
 const nowStamp = () => "Today, " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -111,13 +126,16 @@ export default function SchoolProfileDemo() {
   const [appStatus, setAppStatus] = useState("Accepting applications");
   const [appStatusStamp, setAppStatusStamp] = useState(null);
   const [seatRows, setSeatRows] = useState([
-    { grade: "5th", status: "", seats: "" },
-    { grade: "6th", status: "", seats: "" },
+    { grade: "5th", status: "", seats: "", lottery: null },
+    { grade: "6th", status: "", seats: "", lottery: null },
   ]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [seatsSavedAt, setSeatsSavedAt] = useState(null);
   const [appOpen, setAppOpen] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [admReqsOn, setAdmReqsOn] = useState(false);
+  const [admReqs, setAdmReqs] = useState([]);
+  const [admReqOther, setAdmReqOther] = useState("");
   const [rolling, setRolling] = useState(false);
   const [midYear, setMidYear] = useState(false);
 
@@ -315,11 +333,17 @@ export default function SchoolProfileDemo() {
                   <div key={row.grade} className="py-3 flex flex-wrap items-center gap-4">
                     <span className="text-sm font-medium text-white w-10">{row.grade}</span>
                     <Select value={row.status} placeholder="Choose availability"
-                      onChange={(v) => setSeatRows(seatRows.map((r) => r.grade === row.grade ? { ...r, status: v, seats: v === "Full" ? "0" : r.seats } : r))}
+                      onChange={(v) => setSeatRows(seatRows.map((r) => r.grade === row.grade ? { ...r, status: v, seats: v === "Full" ? "0" : r.seats, lottery: (v === "Open" || v === "Waitlist") ? r.lottery : null } : r))}
                       options={["Open", "Waitlist", "Full"]} />
                     {row.status === "Open" && <TextInput type="number" value={row.seats} placeholder="# seats" onChange={(v) => setSeatRows(seatRows.map((r) => r.grade === row.grade ? { ...r, seats: v } : r))} className="w-24" />}
                     {row.status === "Full" && <span className="text-xs bg-neutral-800 text-neutral-300 px-2 py-1 rounded-md">Full — waitlist badge shows to parents</span>}
                     {!row.status && <span className="text-xs text-violet-400">Current status: Unknown. Choose a new status to submit.</span>}
+                    {(row.status === "Open" || row.status === "Waitlist") && (
+                      <div className="flex items-center gap-2 pl-1">
+                        <span className="text-xs text-neutral-400">Lottery for this grade?</span>
+                        <YesNo value={row.lottery} onChange={(v) => setSeatRows(seatRows.map((r) => r.grade === row.grade ? { ...r, lottery: v } : r))} />
+                      </div>
+                    )}
                     <button onClick={() => setDeleteTarget(row.grade)} className="ml-auto text-neutral-500 hover:text-red-400 p-1.5 rounded-md hover:bg-neutral-800 transition-colors"><Trash2 size={14} /></button>
                   </div>
                 ))}
@@ -345,6 +369,31 @@ export default function SchoolProfileDemo() {
               <Toggle on={midYear} onChange={setMidYear} label="Mid-year enrollment accepted" />
             </div>
             {rolling && <p className="text-xs text-neutral-500 mt-2">With rolling admissions, the deadline is optional — parents see "applications accepted year-round."</p>}
+          </div>
+
+          {/* admission requirements */}
+          <div className="mt-4 border-t border-neutral-800 pt-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-medium text-neutral-300 flex items-center gap-1.5"><ClipboardList size={13} className="text-neutral-400" /> Any admission / application requirements?</span>
+              <YesNo value={admReqsOn} onChange={(v) => setAdmReqsOn(v)} />
+            </div>
+            {admReqsOn && (
+              <div className="mt-3">
+                <p className="text-xs text-neutral-500 mb-2.5">Select all that apply — shown to parents so they know what to prepare before applying.</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ADMISSION_REQS.map((r) => (
+                    <Chip key={r} active={admReqs.includes(r)} onClick={() => setAdmReqs(admReqs.includes(r) ? admReqs.filter((x) => x !== r) : [...admReqs, r])}>{r}</Chip>
+                  ))}
+                  <Chip active={admReqs.includes("__other__")} onClick={() => setAdmReqs(admReqs.includes("__other__") ? admReqs.filter((x) => x !== "__other__") : [...admReqs, "__other__"])}>Other</Chip>
+                </div>
+                {admReqs.includes("__other__") && (
+                  <div className="mt-2.5">
+                    <TextInput value={admReqOther} onChange={setAdmReqOther} placeholder="Describe your other requirement" className="w-full max-w-md" />
+                  </div>
+                )}
+              </div>
+            )}
+            {admReqsOn === false && <p className="text-xs text-neutral-500 mt-2">Parents will see "no special requirements to apply."</p>}
           </div>
         </Card>
 
